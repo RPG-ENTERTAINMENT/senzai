@@ -1,0 +1,823 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>プロフィールカードメーカー</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@500;600;700;800&family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ink:#22242a;
+  --paper:#f4f4f2;
+  --panel:#ffffff;
+  --line:#dcdcd6;
+  --accent:#41527e;
+  --accent-soft:#e9edf6;
+  --sub:#75767c;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{
+  font-family:'Zen Kaku Gothic New',sans-serif;
+  background:var(--paper);
+  color:var(--ink);
+}
+header.app{
+  display:flex;align-items:center;justify-content:space-between;gap:12px;
+  padding:14px 20px;background:var(--panel);border-bottom:1px solid var(--line);
+  position:sticky;top:0;z-index:20;flex-wrap:wrap;
+}
+header.app h1{
+  font-family:'Shippori Mincho',serif;font-size:18px;font-weight:700;letter-spacing:.08em;
+}
+header.app h1 span{color:var(--accent);font-size:12px;margin-left:8px;letter-spacing:.2em}
+.toolbar{display:flex;gap:8px;flex-wrap:wrap}
+button{
+  font-family:inherit;font-size:13px;font-weight:500;
+  padding:9px 14px;border-radius:6px;border:1px solid var(--line);
+  background:#fff;color:var(--ink);cursor:pointer;transition:background .15s,border-color .15s;
+}
+button:hover{background:#f2f2ee}
+button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+button.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+button.primary:hover{background:#33436b}
+button:disabled{opacity:.5;cursor:wait}
+.layout{
+  display:grid;grid-template-columns:400px 1fr;gap:0;min-height:calc(100vh - 61px);
+}
+/* ---------- editor ---------- */
+.editor{
+  background:var(--panel);border-right:1px solid var(--line);
+  padding:20px;overflow-y:auto;max-height:calc(100vh - 61px);
+}
+.group{margin-bottom:22px}
+.group>h2{
+  font-size:11px;font-weight:700;letter-spacing:.22em;color:var(--accent);
+  border-bottom:1px solid var(--line);padding-bottom:6px;margin-bottom:12px;
+}
+label{display:block;font-size:12px;color:var(--sub);margin:10px 0 4px}
+input[type=text],textarea,select{
+  width:100%;font-family:inherit;font-size:13px;padding:8px 10px;
+  border:1px solid var(--line);border-radius:6px;background:#fff;color:var(--ink);
+}
+input:focus,textarea:focus,select:focus{outline:2px solid var(--accent);outline-offset:0;border-color:var(--accent)}
+textarea{resize:vertical;min-height:70px;line-height:1.6}
+.hint{font-size:11px;color:var(--sub);margin-top:3px}
+.photo-row{display:flex;gap:10px}
+.photo-slot{
+  flex:1;border:1px dashed var(--line);border-radius:8px;padding:10px;text-align:center;
+  background:#fafaf8;
+}
+.photo-slot img{max-width:100%;max-height:110px;border-radius:4px;display:block;margin:0 auto 8px}
+.photo-slot .ph-label{font-size:12px;font-weight:700;margin-bottom:6px}
+.photo-slot input[type=file]{display:none}
+.photo-slot .btns{display:flex;gap:6px;justify-content:center}
+.photo-slot button{font-size:12px;padding:6px 10px}
+.sns-item{display:grid;grid-template-columns:110px 1fr;gap:6px;margin-bottom:6px}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+/* ---------- preview ---------- */
+.stage{
+  padding:28px;display:flex;flex-direction:column;align-items:center;gap:14px;
+  overflow:auto;
+}
+.stage-note{font-size:12px;color:var(--sub);letter-spacing:.05em}
+#cardWrap{width:100%;max-width:820px}
+#cardScale{transform-origin:top left}
+/* ---------- the A4 card ---------- */
+#card{
+  width:794px;height:1123px;background:#fff;
+  font-family:'Shippori Mincho',serif;color:#1a1a1a;
+  padding:34px 46px 30px;position:relative;overflow:hidden;
+  box-shadow:0 10px 40px rgba(30,32,40,.14);
+}
+#card .c-title{text-align:center;margin-bottom:22px}
+#card .c-title .kanji{font-size:44px;font-weight:700;letter-spacing:.12em}
+#card .c-title .romaji{font-size:20px;letter-spacing:.06em;margin-left:14px;font-weight:500}
+#card .c-photos{display:flex;justify-content:space-between;gap:30px;height:472px;margin-bottom:26px}
+#card .c-photo{
+  background:#f2f2f0;display:flex;align-items:center;justify-content:center;
+  color:#b6b6b0;font-size:13px;font-family:'Zen Kaku Gothic New',sans-serif;overflow:hidden;
+}
+#card .c-photo img{width:100%;height:100%;object-fit:cover;display:block}
+#card .c-photo.main{flex:0 0 372px}
+#card .c-photo.full{flex:0 0 260px;margin-right:20px}
+#card .c-cols{display:flex;gap:34px}
+#card .c-left{flex:1.08;min-width:0}
+#card .c-right{flex:1;min-width:0;padding-top:120px}
+#card h3.bracket{
+  font-size:25px;font-weight:700;letter-spacing:.1em;margin-bottom:12px;
+}
+#card h3.small-bracket{font-size:19px;font-weight:700;letter-spacing:.06em;margin-bottom:8px}
+#card .c-lines{font-size:15.5px;line-height:1.85;font-family:'Zen Kaku Gothic New',sans-serif;padding-left:12px;white-space:pre-wrap;word-break:break-all}
+#card .c-serif-lines{font-size:15.5px;line-height:1.8;white-space:pre-wrap;word-break:break-all}
+#card .c-section{margin-bottom:22px}
+#card .sns-line{display:flex;align-items:center;gap:14px;margin:14px 0 14px 10px;font-size:13.5px;word-break:break-all}
+#card .sns-line svg{flex:0 0 30px;width:30px;height:30px}
+#card .c-belong{display:flex;align-items:flex-start;gap:12px;margin-left:8px;font-family:'Zen Kaku Gothic New',sans-serif;font-size:14px;line-height:1.7;white-space:pre-wrap;word-break:break-all}
+/* ---------- toast ---------- */
+#toast{
+  position:fixed;bottom:22px;left:50%;transform:translateX(-50%) translateY(20px);
+  background:var(--ink);color:#fff;font-size:13px;padding:10px 18px;border-radius:8px;
+  opacity:0;pointer-events:none;transition:opacity .25s,transform .25s;z-index:50;
+}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+/* ---------- library ---------- */
+.library{
+  border-top:1px solid var(--line);background:var(--panel);
+  padding:24px 28px 60px;
+}
+.library>h2{
+  font-size:12px;font-weight:700;letter-spacing:.22em;color:var(--accent);
+  margin-bottom:14px;
+}
+.lib-list{display:flex;flex-direction:column;gap:8px;max-width:820px}
+.lib-item{
+  display:flex;align-items:center;gap:14px;
+  border:1px solid var(--line);border-radius:8px;background:#fafaf8;
+  padding:10px 14px;
+}
+.lib-item.active{border-color:var(--accent);background:var(--accent-soft)}
+.lib-item .lib-name{font-weight:700;font-size:14px}
+.lib-item .lib-name .editing{
+  font-size:11px;font-weight:500;color:var(--accent);margin-left:8px;letter-spacing:.06em;
+}
+.lib-item .lib-date{font-size:12px;color:var(--sub);margin-left:auto;white-space:nowrap}
+.lib-item .lib-btns{display:flex;gap:6px}
+.lib-item button{font-size:12px;padding:6px 10px}
+.lib-item button.danger:hover{background:#fbecec;border-color:#d9a0a0;color:#a33}
+/* ---------- mailer (page bottom) ---------- */
+.mailer{
+  border-top:1px solid var(--line);background:var(--panel);
+  padding:24px 28px 70px;
+}
+.mailer>h2{
+  font-size:12px;font-weight:700;letter-spacing:.22em;color:var(--accent);
+  margin-bottom:14px;
+}
+.mailer-inner{
+  max-width:640px;border:1px solid var(--line);border-radius:10px;
+  background:#fafaf8;padding:18px 20px 20px;
+}
+@media(max-width:960px){
+  .layout{grid-template-columns:1fr}
+  .editor{max-height:none;border-right:none;border-bottom:1px solid var(--line)}
+  .stage{padding:16px}
+}
+@media (prefers-reduced-motion:reduce){
+  *{transition:none!important}
+}
+</style>
+</head>
+<body>
+
+<header class="app">
+  <h1>プロフィールカードメーカー<span>PROFILE CARD MAKER</span></h1>
+  <div class="toolbar">
+    <button id="btnSave">保存</button>
+    <button id="btnNew">新規作成</button>
+    <button id="btnExportJson">ファイル書き出し</button>
+    <button id="btnImportJson">ファイル読み込み</button>
+    <input type="file" id="jsonFile" accept=".json" style="display:none">
+    <button class="primary" id="btnPdf">PDFを作成（約1MB）</button>
+  </div>
+</header>
+
+<div class="layout">
+  <!-- ================= editor ================= -->
+  <aside class="editor">
+    <div class="group">
+      <h2>名前</h2>
+      <label for="f_kanji">名前（表示名）</label>
+      <input type="text" id="f_kanji" data-bind>
+      <label for="f_romaji">ローマ字</label>
+      <input type="text" id="f_romaji" data-bind>
+    </div>
+
+    <div class="group">
+      <h2>写真</h2>
+      <div class="photo-row">
+        <div class="photo-slot">
+          <div class="ph-label">メイン写真</div>
+          <img id="thumbMain" alt="" hidden>
+          <div class="btns">
+            <button type="button" onclick="document.getElementById('fileMain').click()">選択</button>
+            <button type="button" onclick="clearPhoto('main')">削除</button>
+          </div>
+          <input type="file" id="fileMain" accept="image/*">
+        </div>
+        <div class="photo-slot">
+          <div class="ph-label">全身写真</div>
+          <img id="thumbFull" alt="" hidden>
+          <div class="btns">
+            <button type="button" onclick="document.getElementById('fileFull').click()">選択</button>
+            <button type="button" onclick="clearPhoto('full')">削除</button>
+          </div>
+          <input type="file" id="fileFull" accept="image/*">
+        </div>
+      </div>
+      <p class="hint">画像は自動で圧縮されます（PDFを約1MBに収めるため）</p>
+    </div>
+
+    <div class="group">
+      <h2>プロフィール</h2>
+      <label for="f_category">肩書き（【 】内）</label>
+      <input type="text" id="f_category" data-bind>
+      <label for="f_profile">プロフィール（1行ずつ）</label>
+      <textarea id="f_profile" rows="6" data-bind></textarea>
+    </div>
+
+    <div class="group">
+      <h2>SNS</h2>
+      <div class="sns-item">
+        <select id="s_type1" data-bind>
+          <option value="x">X / Twitter</option><option value="tiktok">TikTok</option><option value="instagram">Instagram</option><option value="youtube">YouTube</option>
+        </select>
+        <input type="text" id="s_url1" placeholder="URL" data-bind>
+      </div>
+      <div class="sns-item">
+        <select id="s_type2" data-bind>
+          <option value="x">X / Twitter</option><option value="tiktok" selected>TikTok</option><option value="instagram">Instagram</option><option value="youtube">YouTube</option>
+        </select>
+        <input type="text" id="s_url2" placeholder="URL" data-bind>
+      </div>
+      <div class="sns-item">
+        <select id="s_type3" data-bind>
+          <option value="x">X / Twitter</option><option value="tiktok">TikTok</option><option value="instagram" selected>Instagram</option><option value="youtube">YouTube</option>
+        </select>
+        <input type="text" id="s_url3" placeholder="URL" data-bind>
+      </div>
+      <p class="hint">URLが空の行はカードに表示されません</p>
+    </div>
+
+    <div class="group">
+      <h2>所属</h2>
+      <label for="f_belong">所属・連絡先（1行ずつ）</label>
+      <textarea id="f_belong" rows="3" data-bind></textarea>
+    </div>
+
+    <div class="group">
+      <h2>右カラム</h2>
+      <label for="f_history">出演歴（1行ずつ）</label>
+      <textarea id="f_history" rows="5" data-bind></textarea>
+      <label for="f_skills">特技（1行ずつ）</label>
+      <textarea id="f_skills" rows="4" data-bind></textarea>
+      <label for="f_quals">資格等（1行ずつ）</label>
+      <textarea id="f_quals" rows="5" data-bind></textarea>
+    </div>
+  </aside>
+
+  <!-- ================= preview ================= -->
+  <main class="stage">
+    <div class="stage-note">A4プレビュー — このまま1ページのPDFになります</div>
+    <div id="cardWrap"><div id="cardScale">
+      <div id="card">
+        <div class="c-title">
+          <span class="kanji" id="p_kanji"></span><span class="romaji" id="p_romaji"></span>
+        </div>
+        <div class="c-photos">
+          <div class="c-photo main" id="p_photoMain">メイン写真</div>
+          <div class="c-photo full" id="p_photoFull">全身写真</div>
+        </div>
+        <div class="c-cols">
+          <div class="c-left">
+            <div class="c-section">
+              <h3 class="bracket" id="p_category"></h3>
+              <div class="c-lines" id="p_profile"></div>
+            </div>
+            <div class="c-section">
+              <h3 class="bracket">【SNS】</h3>
+              <div id="p_sns"></div>
+            </div>
+            <div class="c-section">
+              <h3 class="bracket">【所属】</h3>
+              <div class="c-belong" id="p_belong"></div>
+            </div>
+          </div>
+          <div class="c-right">
+            <div class="c-section">
+              <h3 class="small-bracket">【出演歴】</h3>
+              <div class="c-serif-lines" id="p_history"></div>
+            </div>
+            <div class="c-section">
+              <h3 class="small-bracket">【特技】</h3>
+              <div class="c-serif-lines" id="p_skills"></div>
+            </div>
+            <div class="c-section">
+              <h3 class="small-bracket">【資格等】</h3>
+              <div class="c-serif-lines" id="p_quals"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div></div>
+  </main>
+</div>
+
+<!-- ================= library ================= -->
+<section class="library">
+  <h2>作成したカード</h2>
+  <div id="libList" class="lib-list"></div>
+  <p class="hint" id="libEmpty">まだ保存されたカードはありません。「保存」またはPDF作成でここに追加されます。</p>
+</section>
+
+<!-- ================= mailer (page bottom) ================= -->
+<section class="mailer">
+  <h2>オーディション送付</h2>
+  <div class="mailer-inner">
+    <label for="m_to">送信先メールアドレス（オーディション）</label>
+    <input type="text" id="m_to" placeholder="audition@example.com">
+    <label for="m_atena">宛先名（先方の担当・任意）</label>
+    <input type="text" id="m_atena" placeholder="例）オーディション事務局">
+    <div class="two">
+      <div>
+        <label for="m_company">会社名</label>
+        <input type="text" id="m_company">
+      </div>
+      <div>
+        <label for="m_tanto">担当</label>
+        <input type="text" id="m_tanto" placeholder="担当者名">
+      </div>
+    </div>
+    <label for="m_subject">件名</label>
+    <input type="text" id="m_subject">
+    <label for="m_body">挨拶文</label>
+    <textarea id="m_body" rows="11"></textarea>
+    <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
+      <button type="button" id="btnTemplate">挨拶文を自動作成</button>
+      <button type="button" class="primary" id="btnSendMail">PDFを添付してメール送信</button>
+    </div>
+    <p class="hint">サーバー起動中はボタン1つで直接送信されます（Gmail経由・送信済みにも記録）。サーバーがない環境では自動で共有シート／メールアプリ起動に切り替わります。</p>
+  </div>
+</section>
+
+<div id="toast" role="status"></div>
+
+<script>
+/* ============ storage（Webアプリ版：ブラウザ保存にフォールバック） ============ */
+if(!window.storage){
+  window.storage = {
+    async get(k){ const v = localStorage.getItem(k); if(v === null) throw new Error('key not found'); return {key:k, value:v}; },
+    async set(k,v){ localStorage.setItem(k, v); return {key:k, value:v}; },
+    async delete(k){ localStorage.removeItem(k); return {key:k, deleted:true}; },
+    async list(p){ return { keys: Object.keys(localStorage).filter(key => !p || key.startsWith(p)) }; }
+  };
+}
+
+/* ============ SNS icons ============ */
+const ICONS = {
+  x:'<svg viewBox="0 0 24 24" fill="#1d9bf0"><path d="M23 4.9c-.8.4-1.7.6-2.6.8a4.5 4.5 0 0 0 2-2.5c-.9.5-1.9.9-2.9 1.1a4.5 4.5 0 0 0-7.7 4.1A12.8 12.8 0 0 1 2.5 3.7a4.5 4.5 0 0 0 1.4 6A4.4 4.4 0 0 1 1.8 9v.1a4.5 4.5 0 0 0 3.6 4.4c-.7.2-1.4.2-2 .1a4.5 4.5 0 0 0 4.2 3.1A9 9 0 0 1 1 18.6a12.7 12.7 0 0 0 6.9 2c8.3 0 12.8-6.9 12.8-12.8v-.6c.9-.6 1.6-1.4 2.3-2.3z"/></svg>',
+  tiktok:'<svg viewBox="0 0 24 24"><rect width="24" height="24" rx="5" fill="#000"/><path d="M16.6 6.1c.8.9 1.9 1.5 3.1 1.6v2.6a5.6 5.6 0 0 1-3.2-1v4.8a4.9 4.9 0 1 1-4.9-4.9c.3 0 .5 0 .8.1v2.7a2.3 2.3 0 1 0 1.6 2.2V4h2.5c0 .8.4 1.5 1.1 2.1z" fill="#fff"/></svg>',
+  instagram:'<svg viewBox="0 0 24 24"><defs><radialGradient id="ig" cx="30%" cy="107%" r="150%"><stop offset="0" stop-color="#fdf497"/><stop offset=".35" stop-color="#fd5949"/><stop offset=".6" stop-color="#d6249f"/><stop offset=".9" stop-color="#285AEB"/></radialGradient></defs><rect width="24" height="24" rx="6" fill="url(#ig)"/><circle cx="12" cy="12" r="4.2" fill="none" stroke="#fff" stroke-width="1.8"/><circle cx="17.3" cy="6.7" r="1.3" fill="#fff"/><rect x="3.6" y="3.6" width="16.8" height="16.8" rx="4.6" fill="none" stroke="#fff" stroke-width="1.8"/></svg>',
+  youtube:'<svg viewBox="0 0 24 24"><rect x="1" y="4.5" width="22" height="15" rx="4" fill="#ff0000"/><path d="M10 9l5.5 3L10 15z" fill="#fff"/></svg>'
+};
+
+/* ============ state ============ */
+let photos = { main:null, full:null };
+const $ = id => document.getElementById(id);
+const FIELD_IDS = ['f_kanji','f_romaji','f_category','f_profile','f_belong','f_history','f_skills','f_quals','s_type1','s_url1','s_type2','s_url2','s_type3','s_url3','m_to','m_atena','m_company','m_tanto','m_subject','m_body'];
+
+const DEFAULTS = {
+  f_kanji:'星乃ひかり', f_romaji:'Hoshino hikari',
+  f_category:'【アイドル／タレント】',
+  f_profile:'アイドルグループ fruit fruitリーダー\n出身地 埼玉県\n生年月日 2000年8月7日\nスリーサイズ B:90cm/W：62cm/H：89cm\n靴のサイズ 23.5',
+  f_belong:'所属RPGエンターテイメント\n連絡先furuitfruit1001@gmail.com',
+  f_history:'2020年3月\nミス・パリ・ビューティ専門学校卒業\n2025年11月10日\n芸人の宜伝しまSHOWROOM',
+  f_skills:'アイスをたくさん食べる\nダイエットとリバウンド\n首のアイソレーション',
+  f_quals:'ネイリスト検定2級\nサービスマナー検定1級\nダイエットプロフェッショナル検定\nスパセラピスト検定\nビューティセラピスト検定',
+  s_type1:'x', s_url1:'https://x.com/__hikari_x?s=21',
+  s_type2:'tiktok', s_url2:'https://www.tiktok.com/@hikarin_h',
+  s_type3:'instagram', s_url3:'https://www.instagram.com/hikari__gram',
+  m_to:'', m_atena:'', m_company:'株式会社RPGエンターテイメント', m_tanto:'',
+  m_subject:'', m_body:''
+};
+
+function applyValues(v){
+  FIELD_IDS.forEach(id => { if(v[id] !== undefined) $(id).value = v[id]; });
+}
+function collectValues(){
+  const v = {};
+  FIELD_IDS.forEach(id => v[id] = $(id).value);
+  return v;
+}
+
+/* ============ render ============ */
+function render(){
+  $('p_kanji').textContent  = $('f_kanji').value;
+  $('p_romaji').textContent = $('f_romaji').value;
+  $('p_category').textContent = $('f_category').value;
+  $('p_profile').textContent = $('f_profile').value;
+  $('p_history').textContent = $('f_history').value;
+  $('p_skills').textContent  = $('f_skills').value;
+  $('p_quals').textContent   = $('f_quals').value;
+
+  const belongEl = $('p_belong');
+  belongEl.textContent = $('f_belong').value;
+
+  const snsEl = $('p_sns');
+  snsEl.innerHTML = '';
+  for(let i=1;i<=3;i++){
+    const url = $('s_url'+i).value.trim();
+    if(!url) continue;
+    const type = $('s_type'+i).value;
+    const row = document.createElement('div');
+    row.className = 'sns-line';
+    row.innerHTML = ICONS[type] + '<span></span>';
+    row.querySelector('span').textContent = url;
+    snsEl.appendChild(row);
+  }
+
+  renderPhoto('main','p_photoMain','メイン写真');
+  renderPhoto('full','p_photoFull','全身写真');
+}
+function renderPhoto(key, targetId, placeholder){
+  const el = $(targetId);
+  if(photos[key]){
+    el.innerHTML = '<img alt="">';
+    el.querySelector('img').src = photos[key];
+  } else {
+    el.textContent = placeholder;
+  }
+  const thumb = key==='main' ? $('thumbMain') : $('thumbFull');
+  if(photos[key]){ thumb.src = photos[key]; thumb.hidden = false; }
+  else { thumb.hidden = true; thumb.removeAttribute('src'); }
+}
+
+/* ============ photo upload & compression ============ */
+function compressImage(file, maxSide, quality){
+  return new Promise((resolve,reject)=>{
+    const reader = new FileReader();
+    reader.onload = ()=>{
+      const img = new Image();
+      img.onload = ()=>{
+        let {width:w, height:h} = img;
+        const scale = Math.min(1, maxSide/Math.max(w,h));
+        w = Math.round(w*scale); h = Math.round(h*scale);
+        const c = document.createElement('canvas');
+        c.width = w; c.height = h;
+        const ctx = c.getContext('2d');
+        ctx.fillStyle = '#ffffff'; ctx.fillRect(0,0,w,h);
+        ctx.drawImage(img,0,0,w,h);
+        resolve(c.toDataURL('image/jpeg', quality));
+      };
+      img.onerror = reject;
+      img.src = reader.result;
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+$('fileMain').addEventListener('change', async e=>{
+  if(!e.target.files[0]) return;
+  photos.main = await compressImage(e.target.files[0], 1100, 0.85);
+  e.target.value=''; render();
+});
+$('fileFull').addEventListener('change', async e=>{
+  if(!e.target.files[0]) return;
+  photos.full = await compressImage(e.target.files[0], 1100, 0.85);
+  e.target.value=''; render();
+});
+function clearPhoto(key){ photos[key]=null; render(); }
+
+/* ============ save / load (multi-card library) ============ */
+const INDEX_KEY = 'card-index-v1';
+const OLD_KEY = 'profile-card-v1';
+let currentId = null;
+
+async function getIndex(){
+  try{
+    const r = await window.storage.get(INDEX_KEY);
+    return (r && r.value) ? JSON.parse(r.value) : [];
+  }catch(e){ return []; }
+}
+async function setIndex(idx){
+  await window.storage.set(INDEX_KEY, JSON.stringify(idx));
+}
+
+async function save(silent){
+  try{
+    if(!currentId) currentId = 'c' + Date.now();
+    const payload = JSON.stringify({ values:collectValues(), photos });
+    const r = await window.storage.set('card:'+currentId, payload);
+    if(!r){ if(!silent) toast('保存に失敗しました'); return; }
+    const idx = await getIndex();
+    const name = ($('f_kanji').value || '').trim() || '無題のカード';
+    const now = Date.now();
+    const entry = idx.find(e => e.id === currentId);
+    if(entry){ entry.name = name; entry.updated = now; }
+    else idx.unshift({ id:currentId, name, updated:now });
+    idx.sort((a,b) => b.updated - a.updated);
+    await setIndex(idx);
+    renderLibrary(idx);
+    if(!silent) toast('「' + name + '」を保存しました');
+  }catch(e){ if(!silent) toast('保存に失敗しました'); }
+}
+
+async function loadCard(id){
+  try{
+    const r = await window.storage.get('card:'+id);
+    if(!(r && r.value)){ toast('データが見つかりません'); return; }
+    const data = JSON.parse(r.value);
+    applyValues(data.values || {});
+    photos = data.photos || {main:null, full:null};
+    currentId = id;
+    render();
+    renderLibrary(await getIndex());
+    toast('読み込みました');
+    window.scrollTo({top:0, behavior:'smooth'});
+  }catch(e){ toast('読み込みに失敗しました'); }
+}
+
+async function deleteCard(id, name){
+  if(!confirm('「' + name + '」を削除しますか？この操作は取り消せません。')) return;
+  try{ await window.storage.delete('card:'+id); }catch(e){ /* already gone */ }
+  const idx = (await getIndex()).filter(e => e.id !== id);
+  await setIndex(idx);
+  if(currentId === id) currentId = null; // keep editor contents; next save creates a new entry
+  renderLibrary(idx);
+  toast('削除しました');
+}
+
+function newCard(){
+  applyValues({
+    f_kanji:'', f_romaji:'', f_category:'【アイドル／タレント】',
+    f_profile:'', f_belong:'', f_history:'', f_skills:'', f_quals:'',
+    s_type1:'x', s_url1:'', s_type2:'tiktok', s_url2:'', s_type3:'instagram', s_url3:'',
+    m_to:'', m_atena:'', m_company:'株式会社RPGエンターテイメント', m_tanto:'', m_subject:'', m_body:''
+  });
+  photos = {main:null, full:null};
+  currentId = null;
+  render();
+  getIndex().then(renderLibrary);
+  toast('新規カードを開始しました');
+  window.scrollTo({top:0, behavior:'smooth'});
+}
+
+function renderLibrary(idx){
+  const list = $('libList');
+  const empty = $('libEmpty');
+  list.innerHTML = '';
+  empty.style.display = idx.length ? 'none' : 'block';
+  idx.forEach(entry => {
+    const item = document.createElement('div');
+    item.className = 'lib-item' + (entry.id === currentId ? ' active' : '');
+    const d = new Date(entry.updated);
+    const dateStr = d.toLocaleDateString('ja-JP') + ' ' +
+      d.toLocaleTimeString('ja-JP', {hour:'2-digit', minute:'2-digit'});
+    item.innerHTML =
+      '<span class="lib-name"></span>' +
+      '<span class="lib-date">' + dateStr + '</span>' +
+      '<span class="lib-btns">' +
+        '<button type="button" class="b-load">読み込み</button>' +
+        '<button type="button" class="b-del danger">削除</button>' +
+      '</span>';
+    const nameEl = item.querySelector('.lib-name');
+    nameEl.textContent = entry.name;
+    if(entry.id === currentId){
+      const tag = document.createElement('span');
+      tag.className = 'editing';
+      tag.textContent = '編集中';
+      nameEl.appendChild(tag);
+    }
+    item.querySelector('.b-load').addEventListener('click', () => loadCard(entry.id));
+    item.querySelector('.b-del').addEventListener('click', () => deleteCard(entry.id, entry.name));
+    list.appendChild(item);
+  });
+}
+
+$('btnSave').addEventListener('click', () => save(false));
+$('btnNew').addEventListener('click', newCard);
+
+/* ============ JSON file export / import ============ */
+$('btnExportJson').addEventListener('click', ()=>{
+  const payload = JSON.stringify({ values:collectValues(), photos }, null, 0);
+  const blob = new Blob([payload], {type:'application/json'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = ($('f_kanji').value || 'profile') + '_card.json';
+  a.click();
+  URL.revokeObjectURL(a.href);
+  toast('JSONファイルを書き出しました');
+});
+$('btnImportJson').addEventListener('click', ()=> $('jsonFile').click());
+$('jsonFile').addEventListener('change', e=>{
+  const file = e.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = ()=>{
+    try{
+      const data = JSON.parse(reader.result);
+      applyValues(data.values||{});
+      photos = data.photos || {main:null,full:null};
+      currentId = null; // 読み込んだファイルは次回保存時に新しいカードとして追加
+      render();
+      getIndex().then(renderLibrary);
+      toast('ファイルを読み込みました');
+    }catch(err){ toast('読み込めないファイルです'); }
+  };
+  reader.readAsText(file);
+  e.target.value='';
+});
+
+/* ============ PDF generation (target ~1MB) ============ */
+async function makePdf(){
+  await document.fonts.ready;
+  const canvas = await html2canvas($('card'), { scale:2, useCORS:true, backgroundColor:'#ffffff' });
+  const LIMIT = 1024*1024;
+  const bytes = u => Math.round((u.length - 'data:image/jpeg;base64,'.length) * 0.75);
+  let quality = 0.92, dataUrl = canvas.toDataURL('image/jpeg', quality);
+  while(bytes(dataUrl) > LIMIT*0.96 && quality > 0.4){
+    quality -= 0.07;
+    dataUrl = canvas.toDataURL('image/jpeg', quality);
+  }
+  const pdf = new jspdf.jsPDF({ orientation:'portrait', unit:'mm', format:'a4', compress:true });
+  pdf.addImage(dataUrl, 'JPEG', 0, 0, 210, 297);
+  return {
+    pdf,
+    filename: ($('f_kanji').value || 'profile') + '_プロフィール.pdf',
+    sizeMB: (bytes(dataUrl)/1024/1024).toFixed(2)
+  };
+}
+
+$('btnPdf').addEventListener('click', async ()=>{
+  const btn = $('btnPdf');
+  btn.disabled = true; btn.textContent = '作成中…';
+  try{
+    const { pdf, filename, sizeMB } = await makePdf();
+    pdf.save(filename);
+    await save(true); // PDFを作ったカードは自動でリストに保存
+    toast('PDFを作成しました（約' + sizeMB + 'MB）');
+  }catch(err){
+    console.error(err);
+    toast('PDFの作成に失敗しました');
+  }finally{
+    btn.disabled = false; btn.textContent = 'PDFを作成（約1MB）';
+  }
+});
+
+/* ============ greeting template ============ */
+function buildMailTemplate(){
+  const name    = ($('f_kanji').value || '').trim() || 'タレント';
+  const company = ($('m_company').value || '').trim() || '株式会社RPGエンターテイメント';
+  const tanto   = ($('m_tanto').value || '').trim();
+  const atena   = ($('m_atena').value || '').trim();
+  const subject = '【' + company + '】タレントプロフィールのご送付（' + name + '）';
+
+  let body = (atena ? atena : 'ご担当者') + '様\n\n';
+  body += 'お世話になっております。\n';
+  body += company + (tanto ? ' の' + tanto : '') + 'です。\n\n';
+  body += '弊社所属タレント「' + name + '」のプロフィールPDFデータをお送りいたします。\n';
+  body += 'オーディションのご検討をいただけますと幸いです。\n\n';
+  body += 'ご査収のほど、何卒よろしくお願い申し上げます。\n\n';
+  body += '――――――――――――――――\n';
+  body += company + '\n';
+  if(tanto) body += '担当：' + tanto + '\n';
+  const mail = ($('f_belong').value || '').match(/[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}/);
+  if(mail) body += '連絡先：' + mail[0] + '\n';
+  return { subject, body };
+}
+$('btnTemplate').addEventListener('click', ()=>{
+  const t = buildMailTemplate();
+  $('m_subject').value = t.subject;
+  $('m_body').value = t.body;
+  toast('挨拶文を作成しました。内容を確認・編集してください');
+});
+
+/* ============ send PDF by email ============ */
+$('btnSendMail').addEventListener('click', async ()=>{
+  const to = $('m_to').value.trim();
+  if(!to || !/^[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}$/.test(to)){
+    toast('送信先メールアドレスを正しく入力してください');
+    $('m_to').focus();
+    return;
+  }
+  // 件名・本文が空ならテンプレートで補完
+  if(!$('m_subject').value.trim() || !$('m_body').value.trim()){
+    const t = buildMailTemplate();
+    if(!$('m_subject').value.trim()) $('m_subject').value = t.subject;
+    if(!$('m_body').value.trim())    $('m_body').value = t.body;
+  }
+  const subject = $('m_subject').value;
+  const body = $('m_body').value;
+
+  const btn = $('btnSendMail');
+  btn.disabled = true; btn.textContent = 'PDF作成中…';
+  try{
+    const { pdf, filename } = await makePdf();
+
+    // まずサーバー経由で直接送信を試みる
+    btn.textContent = '送信中…';
+    let sentDirectly = false;
+    try{
+      const resp = await fetch('/api/send', {
+        method:'POST',
+        headers:{ 'Content-Type':'application/json' },
+        body: JSON.stringify({
+          to, subject, body, filename,
+          pdfBase64: pdf.output('datauristring').split(',')[1]
+        })
+      });
+      const data = await resp.json().catch(()=>({}));
+      if(resp.ok && data.ok){
+        sentDirectly = true;
+        toast('送信しました → ' + to);
+      }else if(data && data.error){
+        // 送信サーバーはあるが設定エラー等 → メッセージを表示（フォールバックしない）
+        toast(data.error);
+        sentDirectly = true;
+      }
+      // それ以外（404など＝静的サイト）はフォールバックへ
+    }catch(networkErr){
+      // サーバーなし（静的ファイルとして開いている等）→ 従来の方法にフォールバック
+    }
+
+    if(!sentDirectly){
+      const blob = pdf.output('blob');
+      const file = new File([blob], filename, { type:'application/pdf' });
+      if(navigator.canShare && navigator.canShare({ files:[file] })){
+        try{
+          await navigator.share({ files:[file], title:subject, text:'宛先：' + to + '\n\n' + body });
+          toast('共有しました。メールアプリで宛先を確認して送信してください');
+        }catch(err){
+          if(err && err.name === 'AbortError'){ toast('共有をキャンセルしました'); }
+          else throw err;
+        }
+      }else{
+        pdf.save(filename);
+        const mailto = 'mailto:' + encodeURIComponent(to)
+          + '?subject=' + encodeURIComponent(subject)
+          + '&body=' + encodeURIComponent(body);
+        window.location.href = mailto;
+        toast('PDFをダウンロードしました。メールに添付して送信してください');
+      }
+    }
+    await save(true);
+  }catch(err){
+    console.error(err);
+    toast('メールの準備に失敗しました');
+  }finally{
+    btn.disabled = false; btn.textContent = 'PDFを添付してメール送信';
+  }
+});
+
+/* ============ toast ============ */
+let toastTimer;
+function toast(msg){
+  const t = $('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(()=>t.classList.remove('show'), 2600);
+}
+
+/* ============ preview scaling ============ */
+function fitPreview(){
+  const wrap = $('cardWrap');
+  const s = Math.min(1, wrap.clientWidth / 794);
+  $('cardScale').style.transform = 'scale('+s+')';
+  wrap.style.height = (1123*s) + 'px';
+}
+window.addEventListener('resize', fitPreview);
+
+/* ============ init ============ */
+FIELD_IDS.forEach(id => $(id).addEventListener('input', render));
+applyValues(DEFAULTS);
+render();
+fitPreview();
+// 起動時：旧データを移行し、リストを表示。最後に保存したカードを自動で開く
+(async ()=>{
+  try{
+    let idx = await getIndex();
+    // 旧バージョン（単一保存）のデータがあればリストに移行
+    if(idx.length === 0){
+      try{
+        const old = await window.storage.get(OLD_KEY);
+        if(old && old.value){
+          const data = JSON.parse(old.value);
+          const id = 'c' + Date.now();
+          await window.storage.set('card:'+id, old.value);
+          idx = [{ id, name:(data.values && data.values.f_kanji) || '無題のカード', updated:Date.now() }];
+          await setIndex(idx);
+          await window.storage.delete(OLD_KEY);
+        }
+      }catch(e){ /* 旧データなし */ }
+    }
+    renderLibrary(idx);
+    if(idx.length > 0){
+      const r = await window.storage.get('card:'+idx[0].id);
+      if(r && r.value){
+        const data = JSON.parse(r.value);
+        applyValues(data.values||{});
+        photos = data.photos || {main:null,full:null};
+        currentId = idx[0].id;
+        render();
+        renderLibrary(idx);
+        toast('「' + idx[0].name + '」を読み込みました');
+      }
+    }
+  }catch(e){ /* 保存データなし */ }
+})();
+</script>
+</body>
+</html>
