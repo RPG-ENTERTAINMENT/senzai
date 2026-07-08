@@ -134,7 +134,7 @@ textarea.locked,input.locked{background:#f0f0ec;color:#555;cursor:not-allowed}
   font-size:13px;font-weight:700;color:#1a1a1a;display:flex;align-items:baseline;gap:8px;
 }
 #card .c-total .num{font-size:17px;color:#41527e;letter-spacing:.02em}
-#card .c-belong{display:flex;align-items:flex-start;gap:12px;margin-left:8px;font-family:'Zen Kaku Gothic New',sans-serif;font-size:11.5px;line-height:1.7;white-space:pre-wrap;word-break:break-all;letter-spacing:.05em}
+#card .c-belong{display:flex;align-items:flex-start;gap:12px;margin-left:8px;font-family:'Zen Kaku Gothic New',sans-serif;font-size:10px;line-height:1.65;white-space:nowrap;letter-spacing:.05em}
 #card .c-belong .mail-link{color:#1a1a1a;text-decoration:none}
 /* ---------- toast ---------- */
 #toast{
@@ -534,7 +534,7 @@ const DEFAULTS = {
   p_by:'2000', p_bm:'8', p_bd:'7',
   p_b:'90', p_w:'62', p_h:'89',
   p_shoe:'23.5',
-  f_belong:'所属RPGエンターテイメント\n連絡先rpgentertainment2014@gmail.com',
+  f_belong:'所属RPGエンターテイメント　連絡先rpgentertainment2014@gmail.com',
   hy1:'2020年3月', hc1:'ミス・パリ・ビューティ専門学校卒業',
   hy2:'2025年11月10日', hc2:'芸人の宜伝しまSHOWROOM',
   hy3:'', hc3:'', hy4:'', hc4:'', hy5:'', hc5:'', hy6:'', hc6:'', hy7:'', hc7:'',
@@ -1120,7 +1120,7 @@ window.addEventListener('resize', fitPreview);
 
 /* ============ init ============ */
 // 所属は常に固定値に保つ（読み込み後も上書き）
-const FIXED_BELONG = '所属RPGエンターテイメント\n連絡先rpgentertainment2014@gmail.com';
+const FIXED_BELONG = '所属RPGエンターテイメント　連絡先rpgentertainment2014@gmail.com';
 function lockBelong(){ $('f_belong').value = FIXED_BELONG; }
 
 FIELD_IDS.forEach(id => $(id).addEventListener('input', render));
