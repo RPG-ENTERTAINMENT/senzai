@@ -411,8 +411,10 @@ textarea.locked,input.locked{background:#f0f0ec;color:#555;cursor:not-allowed}
       <button id="btnExportJson">ファイル書き出し</button>
       <button id="btnImportJson">ファイル読み込み</button>
       <input type="file" id="jsonFile" accept=".json" style="display:none">
+      <button id="btnAdmin">運営モード</button>
     </div>
     <p class="hint" id="syncStatus"></p>
+    <p class="hint" id="adminStatus" style="color:#a33"></p>
     <div id="libList" class="lib-list"></div>
     <p class="hint" id="libEmpty">まだ保存された書類はありません。「保存」またはPDF作成でここに追加されます。</p>
   </section>
@@ -526,6 +528,7 @@ const ICONS = {
 
 /* ============ state ============ */
 let photos = { main:null, full:null };
+let adminMode = false; // 運営モード（書類の削除が可能になる）
 const $ = id => document.getElementById(id);
 const HIST_IDS = [];
 for(let i=1;i<=7;i++){ HIST_IDS.push('hy'+i, 'hc'+i); }
@@ -818,6 +821,7 @@ async function loadCard(id){
 }
 
 async function deleteCard(id, name){
+  if(!adminMode){ toast('削除するには運営モードが必要です'); return; }
   if(!confirm('「' + name + '」を削除しますか？この操作は取り消せません。')) return;
   try{ await window.storage.delete('card:'+id); }catch(e){ /* already gone */ }
   const idx = (await getIndex()).filter(e => e.id !== id);
@@ -852,7 +856,7 @@ function renderLibrary(idx){
       '<span class="lib-date">' + dateStr + '</span>' +
       '<span class="lib-btns">' +
         '<button type="button" class="b-load">読み込み</button>' +
-        '<button type="button" class="b-del danger">削除</button>' +
+        (adminMode ? '<button type="button" class="b-del danger">削除</button>' : '') +
       '</span>';
     const nameEl = item.querySelector('.lib-name');
     nameEl.textContent = entry.name;
@@ -863,7 +867,8 @@ function renderLibrary(idx){
       nameEl.appendChild(tag);
     }
     item.querySelector('.b-load').addEventListener('click', () => loadCard(entry.id));
-    item.querySelector('.b-del').addEventListener('click', () => deleteCard(entry.id, entry.name));
+    const delBtn = item.querySelector('.b-del');
+    if(delBtn) delBtn.addEventListener('click', () => deleteCard(entry.id, entry.name));
     list.appendChild(item);
   });
 }
@@ -906,10 +911,35 @@ $('btnLibrary').addEventListener('click', async () => {
       : '💾 この端末のブラウザにのみ保存されています（ネット共有は未設定）。';
   }
   renderLibrary(await getIndex());
+  updateAdminUI();
   $('libraryPage').hidden = false;
   window.scrollTo({ top:0 });
 });
 $('btnBack').addEventListener('click', () => { $('libraryPage').hidden = true; });
+
+// 運営モード：パスワードを入れると書類の削除ができるようになる
+const ADMIN_PASSWORD = 'rpg123456';
+function updateAdminUI(){
+  const b = $('btnAdmin');
+  b.textContent = adminMode ? '運営モード：ON（解除）' : '運営モード';
+  b.classList.toggle('primary', adminMode);
+  const st = $('adminStatus');
+  if(st) st.textContent = adminMode ? '運営モード中：書類を削除できます。' : '';
+}
+$('btnAdmin').addEventListener('click', async () => {
+  if(adminMode){
+    adminMode = false;
+    toast('運営モードを解除しました');
+  }else{
+    const pw = prompt('運営パスワードを入力してください');
+    if(pw === null) return;              // キャンセル
+    if(pw !== ADMIN_PASSWORD){ toast('パスワードが違います'); return; }
+    adminMode = true;
+    toast('運営モードになりました（削除が可能です）');
+  }
+  updateAdminUI();
+  renderLibrary(await getIndex());
+});
 
 // 「参考例を見る」ボタン：星乃ひかりのサンプルを入力
 $('btnExample').addEventListener('click', () => {
